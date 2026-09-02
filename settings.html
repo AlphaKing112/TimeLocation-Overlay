@@ -457,7 +457,11 @@
 
   <script>
     const config = window.OVERLAY_CONFIG || {};
-    const workerEndpoint = config.workerEndpoint || "";
+    // Auto-detect worker endpoint on Cloudflare if not explicitly set in config.js
+    const autoWorkerUrl = (window.location.protocol.startsWith('http') && (window.location.hostname.includes('workers.dev') || window.location.hostname.includes('pages.dev')))
+      ? `${window.location.origin}/overlay`
+      : "";
+    const workerEndpoint = config.workerEndpoint || autoWorkerUrl;
     const mapboxApiKey = config.mapboxApiKey || "";
 
     // DOM Elements

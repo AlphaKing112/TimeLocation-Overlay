@@ -313,7 +313,10 @@
     const config = window.OVERLAY_CONFIG || {};
     const openWeatherApiKey = config.openWeatherApiKey || "";
     const mapboxApiKey = config.mapboxApiKey || "";
-    const workerEndpoint = config.workerEndpoint || "";
+    const autoWorkerUrl = (window.location.protocol.startsWith('http') && (window.location.hostname.includes('workers.dev') || window.location.hostname.includes('pages.dev')))
+      ? `${window.location.origin}/overlay`
+      : "";
+    const workerEndpoint = config.workerEndpoint || autoWorkerUrl;
     const defaultUnits = urlParams.get('units') || config.units || 'imperial';
     const activeLayout = urlParams.get('layout') || config.layout || 'card';
     const activeTheme = urlParams.get('theme') || config.theme || 'glass';

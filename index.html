@@ -380,108 +380,118 @@
       timeIntervalId = setInterval(updateTimeDisplay, 1000);
     }
 
+    // Weather code text mapping
+    function getConditionText(code) {
+      const mapping = {
+        0: "Clear sky", 1: "Mainly clear", 2: "Partly cloudy", 3: "Overcast",
+        45: "Foggy", 48: "Depositing rime fog",
+        51: "Light drizzle", 53: "Moderate drizzle", 55: "Dense drizzle",
+        61: "Slight rain", 63: "Moderate rain", 65: "Heavy rain",
+        71: "Slight snow", 73: "Moderate snow", 75: "Heavy snow",
+        80: "Rain showers", 81: "Moderate showers", 82: "Violent showers",
+        95: "Thunderstorm", 96: "Thunderstorm with hail", 99: "Heavy thunderstorm"
+      };
+      return mapping[code] || "Clear";
+    }
+
+    function getConditionIcon(code, isDay = true) {
+      if (code === 0 || code === 1) return isDay ? WEATHER_ICONS.clearDay : WEATHER_ICONS.clearNight;
+      if (code === 2 || code === 3) return WEATHER_ICONS.clouds;
+      if ((code >= 51 && code <= 65) || (code >= 80 && code <= 82)) return WEATHER_ICONS.rain;
+      if (code >= 71 && code <= 75) return WEATHER_ICONS.snow;
+      if (code >= 95) return WEATHER_ICONS.thunderstorm;
+      if (code === 45 || code === 48) return WEATHER_ICONS.mist;
+      return WEATHER_ICONS.clouds;
+    }
+
     // Set country flag safely
     function setFlagImage(countryCode) {
       const flagImg = document.getElementById("flagImg");
+      if (!flagImg) return;
       if (countryCode && countryCode.length === 2) {
-        flagImg.src = `https://flagcdn.com/${countryCode.toLowerCase()}.svg`;
+        flagImg.style.display = 'inline-block';
+        flagImg.src = `https://flagcdn.com/w40/${countryCode.toLowerCase()}.png`;
         flagImg.alt = `${countryCode.toUpperCase()} flag`;
+        flagImg.onerror = () => { flagImg.style.display = 'none'; };
       } else {
-        flagImg.src = "https://flagcdn.com/unknown.svg";
-        flagImg.alt = "Unknown flag";
+        flagImg.style.display = 'none';
       }
     }
 
-    // Check if configuration is missing
     function checkConfiguration() {
-      if (!workerEndpoint && !openWeatherApiKey) {
-        overlayEl.innerHTML = `
-          <div class="setup-banner">
-            <div class="setup-title">
-              <span class="live-dot" style="background:#f59e0b;box-shadow:0 0 6px #f59e0b;"></span>
-              TimeLocation Overlay Setup
-            </div>
-            <div class="setup-desc">
-              Create <strong>config.js</strong> with your OpenWeather & Worker endpoints to activate the live stream overlay.
-            </div>
-            <a class="setup-link" href="settings.html" target="_blank">Open Settings Dashboard →</a>
-          </div>
-        `;
-        return false;
-      }
       return true;
     }
 
-    // Fetch and update location & weather
+    // Fetch and update location & weather (with Open-Meteo free fallback)
     async function updateOverlayWithLocation(latitude, longitude, preferredCity = null, preferredCountry = null) {
       const locationEl = document.getElementById("location");
       const conditionEl = document.getElementById("condition");
       const tempEl = document.getElementById("temperature");
       const iconBadge = document.getElementById("weatherIcon");
 
-      // Approximate coordinates to 2 decimals (~1km) for cache key to respect API quotas
       const cacheKey = `${latitude.toFixed(2)},${longitude.toFixed(2)}:${defaultUnits}`;
       const now = Date.now();
 
       try {
-        let weatherData = null;
         let region = preferredCity;
         let country = preferredCountry;
+        let temp = 0;
+        let condition = "Clear";
+        let iconSvg = WEATHER_ICONS.clouds;
 
-        // Check Cache
-        if (weatherCache.has(cacheKey) && (now - weatherCache.get(cacheKey).time < CACHE_TTL_MS)) {
-          const cached = weatherCache.get(cacheKey);
-          weatherData = cached.data;
-          region = region || cached.region;
-          country = country || cached.country;
-        } else {
-          // 1. Reverse Geocoding if city not provided
-          if (!region) {
-            const reverseRes = await fetch(
-              `https://api.openweathermap.org/geo/1.0/reverse?lat=${latitude}&lon=${longitude}&limit=1&appid=${openWeatherApiKey}`
-            );
-            if (reverseRes.ok) {
-              const reverseData = await reverseRes.json();
-              if (reverseData && reverseData[0]) {
-                region = reverseData[0].name;
-                country = reverseData[0].country;
+        // 1. Try OpenWeather if API key is provided
+        if (openWeatherApiKey) {
+          try {
+            if (!region) {
+              const rev = await fetch(`https://api.openweathermap.org/geo/1.0/reverse?lat=${latitude}&lon=${longitude}&limit=1&appid=${openWeatherApiKey}`);
+              const revData = await rev.json();
+              if (revData && revData[0]) {
+                region = revData[0].name;
+                country = revData[0].country;
               }
             }
+            const weatherUrl = `https://api.openweathermap.org/data/2.5/weather?lat=${latitude}&lon=${longitude}&units=${defaultUnits}&appid=${openWeatherApiKey}`;
+            const weatherRes = await fetch(weatherUrl);
+            if (weatherRes.ok) {
+              const data = await weatherRes.json();
+              temp = Math.round(data.main.temp);
+              condition = data.weather[0]?.description || "Clear";
+              currentTimezoneOffset = data.timezone || 0;
+              iconSvg = getWeatherIcon(data.weather[0]?.icon, data.weather[0]?.id || 800);
+            }
+          } catch (e) {
+            console.warn("[Overlay] OpenWeather API error, falling back to Open-Meteo:", e);
           }
-
-          // 2. Fetch Weather Data
-          const weatherUrl = `https://api.openweathermap.org/data/2.5/weather?lat=${latitude}&lon=${longitude}&units=${defaultUnits}&appid=${openWeatherApiKey}`;
-          const weatherRes = await fetch(weatherUrl);
-          if (!weatherRes.ok) throw new Error(`Weather API Error (${weatherRes.status})`);
-          weatherData = await weatherRes.json();
-
-          // Save to cache
-          weatherCache.set(cacheKey, { data: weatherData, region, country, time: now });
         }
 
-        // Apply Country & Location
+        // 2. Open-Meteo fallback (Free, 0 API keys required)
+        if (!temp && temp !== 0 || condition === "Clear") {
+          const tempUnit = defaultUnits === 'metric' ? 'celsius' : 'fahrenheit';
+          const weatherUrl = `https://api.open-meteo.com/v1/forecast?latitude=${latitude}&longitude=${longitude}&current=temperature_2m,weather_code,is_day&temperature_unit=${tempUnit}&timezone=auto`;
+          const res = await fetch(weatherUrl);
+          if (res.ok) {
+            const data = await res.json();
+            temp = Math.round(data.current.temperature_2m);
+            const code = data.current.weather_code;
+            const isDay = data.current.is_day === 1;
+            currentTimezoneOffset = data.utc_offset_seconds || 0;
+            condition = getConditionText(code);
+            iconSvg = getConditionIcon(code, isDay);
+          }
+        }
+
+        // Apply to UI
         setFlagImage(country);
-        locationEl.textContent = region ? (country ? `${region}, ${country}` : region) : "Unknown Location";
+        locationEl.textContent = region || "Unknown Location";
         locationEl.classList.remove('fade-in');
-        void locationEl.offsetWidth; // trigger reflow
+        void locationEl.offsetWidth;
         locationEl.classList.add('fade-in');
 
-        // Apply Weather & Temperature
         const unitSymbol = defaultUnits === 'metric' ? '°C' : '°F';
-        const temp = Math.round(weatherData.main.temp);
-        const condition = weatherData.weather[0]?.description || "Clear";
-        const iconCode = weatherData.weather[0]?.icon || "01d";
-        const weatherId = weatherData.weather[0]?.id || 800;
-
-        currentTimezoneOffset = weatherData.timezone || 0;
         tempEl.textContent = `${temp}${unitSymbol}`;
         conditionEl.textContent = condition;
+        if (iconBadge) iconBadge.innerHTML = iconSvg;
 
-        if (iconBadge) {
-          iconBadge.innerHTML = getWeatherIcon(iconCode, weatherId);
-        }
-
-        // Visual status pulse
         const liveDot = document.getElementById("liveDot");
         if (liveDot) {
           liveDot.style.background = 'var(--pulse-color)';
@@ -489,13 +499,13 @@
         }
       } catch (err) {
         console.warn("[Overlay] Weather update notice:", err.message);
-        if (locationEl) locationEl.textContent = region || "Location unavailable";
+        if (locationEl) locationEl.textContent = preferredCity || "Location unavailable";
         if (conditionEl) conditionEl.textContent = "Data unavailable";
         if (tempEl) tempEl.textContent = "--°";
       }
     }
 
-    // Manual city resolver
+    // Manual city resolver (supports Open-Meteo geocoding without API key)
     async function updateOverlayWithCity(city, lat = null, lon = null) {
       try {
         let latitude = lat;
@@ -510,16 +520,19 @@
             countryCode = parts[parts.length - 1].trim();
           }
         } else {
-          // Geocode with OpenWeather
-          const geoRes = await fetch(
-            `https://api.openweathermap.org/geo/1.0/direct?q=${encodeURIComponent(city)}&limit=1&appid=${openWeatherApiKey}`
-          );
-          const geoData = await geoRes.json();
-          if (!geoData || !geoData.length) throw new Error("City not found");
-          latitude = geoData[0].lat;
-          longitude = geoData[0].lon;
-          cityName = geoData[0].name;
-          countryCode = geoData[0].country;
+          // Free Geocoding with Open-Meteo
+          const geoUrl = `https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(city)}&count=1&language=en&format=json`;
+          const res = await fetch(geoUrl);
+          const data = await res.json();
+          if (data && data.results && data.results[0]) {
+            const first = data.results[0];
+            latitude = first.latitude;
+            longitude = first.longitude;
+            cityName = `${first.name}${first.admin1 ? ', ' + first.admin1 : ''}`;
+            countryCode = first.country_code;
+          } else {
+            throw new Error("City not found");
+          }
         }
 
         lastLat = latitude;

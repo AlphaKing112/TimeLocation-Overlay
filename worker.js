@@ -2,6 +2,24 @@ export default {
   async fetch(request, env) {
     const url = new URL(request.url);
 
+    // Serve a default config.js to prevent 404 in console if not uploaded
+    if (url.pathname === "/config.js" || url.pathname === "/config") {
+      const defaultJs = `window.OVERLAY_CONFIG = window.OVERLAY_CONFIG || {
+  openWeatherApiKey: "",
+  mapboxApiKey: "",
+  workerEndpoint: "${url.origin}/overlay",
+  units: "imperial",
+  layout: "card",
+  theme: "glass"
+};`;
+      return new Response(defaultJs, {
+        headers: {
+          "Content-Type": "application/javascript; charset=utf-8",
+          "Access-Control-Allow-Origin": "*"
+        }
+      });
+    }
+
     // Handle /overlay API endpoint
     if (url.pathname === "/overlay" || url.pathname === "/overlay/") {
       const corsHeaders = {

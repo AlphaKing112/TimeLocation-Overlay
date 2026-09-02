@@ -1,215 +1,703 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title>Settings - RTIRL Key</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>TimeLocation Overlay - Remote Control</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@500;700&family=Outfit:wght@400;500;600;700&display=swap" rel="stylesheet">
   <style>
+    :root {
+      --bg-body: #0a0e17;
+      --bg-card: rgba(18, 24, 38, 0.85);
+      --border-card: rgba(255, 255, 255, 0.1);
+      --accent: #6366f1;
+      --accent-hover: #4f46e5;
+      --accent-glow: rgba(99, 102, 241, 0.35);
+      --danger: #ef4444;
+      --danger-hover: #dc2626;
+      --success: #10b981;
+      --text-main: #f8fafc;
+      --text-muted: #94a3b8;
+      --font-main: 'Outfit', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      --font-mono: 'JetBrains Mono', monospace;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
     body {
-      font-family: Arial, sans-serif;
-      background: #181818;
-      color: #fff;
+      font-family: var(--font-main);
+      background: var(--bg-body);
+      background-image: 
+        radial-gradient(at 0% 0%, rgba(99, 102, 241, 0.15) 0px, transparent 50%),
+        radial-gradient(at 100% 100%, rgba(16, 185, 129, 0.1) 0px, transparent 50%);
+      color: var(--text-main);
+      min-height: 100vh;
       display: flex;
       flex-direction: column;
       align-items: center;
       justify-content: center;
-      height: 100vh;
-      margin: 0;
+      padding: 24px 16px;
+      -webkit-font-smoothing: antialiased;
     }
+
     .container {
-      background: #232323;
-      padding: 32px 24px;
-      border-radius: 12px;
-      box-shadow: 0 4px 24px #0008;
-      min-width: 0;
+      background: var(--bg-card);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      border: 1px solid var(--border-card);
+      border-radius: 20px;
+      box-shadow: 0 20px 50px rgba(0, 0, 0, 0.6), 0 0 0 1px rgba(255, 255, 255, 0.05);
       width: 100%;
-      max-width: 400px;
-      box-sizing: border-box;
+      max-width: 480px;
+      padding: 32px 28px;
+      transition: all 0.3s ease;
     }
+
+    .header {
+      text-align: center;
+      margin-bottom: 24px;
+    }
+
+    .header h1 {
+      font-size: 24px;
+      font-weight: 700;
+      letter-spacing: -0.5px;
+      background: linear-gradient(135deg, #ffffff 30%, #94a3b8 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      margin-bottom: 6px;
+    }
+
+    .header p {
+      font-size: 13px;
+      color: var(--text-muted);
+    }
+
+    /* Tabs */
+    .tabs-container {
+      display: flex;
+      background: rgba(0, 0, 0, 0.35);
+      padding: 4px;
+      border-radius: 12px;
+      margin-bottom: 24px;
+      border: 1px solid rgba(255, 255, 255, 0.06);
+    }
+
+    .tab-btn {
+      flex: 1;
+      padding: 10px 14px;
+      border: none;
+      background: transparent;
+      color: var(--text-muted);
+      font-family: var(--font-main);
+      font-size: 14px;
+      font-weight: 600;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+    }
+
+    .tab-btn.active {
+      background: var(--accent);
+      color: #ffffff;
+      box-shadow: 0 4px 12px var(--accent-glow);
+    }
+
+    /* Forms */
+    .form-group {
+      margin-bottom: 20px;
+    }
+
     label {
       display: block;
       margin-bottom: 8px;
-      font-weight: bold;
+      font-size: 13px;
+      font-weight: 600;
+      color: #cbd5e1;
+      letter-spacing: 0.2px;
     }
+
+    .input-wrapper {
+      position: relative;
+    }
+
     input[type="text"] {
       width: 100%;
-      padding: 14px 10px;
-      border-radius: 4px;
-      border: none;
-      margin-bottom: 16px;
-      font-size: 18px;
-      box-sizing: border-box;
-    }
-    button {
-      padding: 14px 20px;
-      border: none;
-      border-radius: 4px;
-      background: #4caf50;
-      color: #fff;
-      font-size: 18px;
-      cursor: pointer;
-      width: 100%;
-    }
-    .success {
-      color: #4caf50;
-      margin-top: 12px;
+      padding: 13px 16px;
+      background: rgba(0, 0, 0, 0.4);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      border-radius: 10px;
+      color: #ffffff;
       font-size: 15px;
+      font-family: var(--font-main);
+      outline: none;
+      transition: all 0.2s ease;
     }
-    a {
-      color: #90caf9;
-      text-decoration: none;
-      display: block;
+
+    input[type="text"]:focus {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px var(--accent-glow);
+      background: rgba(0, 0, 0, 0.6);
+    }
+
+    .hint {
+      font-size: 12px;
+      color: var(--text-muted);
+      margin-top: 6px;
+      line-height: 1.4;
+    }
+
+    /* Buttons */
+    .btn {
+      width: 100%;
+      padding: 14px;
+      border: none;
+      border-radius: 10px;
+      font-family: var(--font-main);
+      font-size: 15px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+    }
+
+    .btn-primary {
+      background: var(--accent);
+      color: white;
+      box-shadow: 0 4px 14px var(--accent-glow);
+    }
+
+    .btn-primary:hover {
+      background: var(--accent-hover);
+      transform: translateY(-1px);
+    }
+
+    .btn-danger {
+      background: rgba(239, 68, 68, 0.15);
+      border: 1px solid rgba(239, 68, 68, 0.3);
+      color: #f87171;
+      margin-top: 10px;
+    }
+
+    .btn-danger:hover {
+      background: var(--danger);
+      color: white;
+    }
+
+    /* City search list dropdown */
+    .results-dropdown {
+      position: absolute;
+      top: calc(100% + 6px);
+      left: 0;
+      right: 0;
+      background: #1e2538;
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      border-radius: 10px;
+      max-height: 220px;
+      overflow-y: auto;
+      z-index: 100;
+      box-shadow: 0 10px 25px rgba(0, 0, 0, 0.5);
+      display: none;
+    }
+
+    .result-item {
+      padding: 11px 14px;
+      font-size: 13px;
+      color: #e2e8f0;
+      cursor: pointer;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+      transition: background 0.15s ease;
+    }
+
+    .result-item:last-child {
+      border-bottom: none;
+    }
+
+    .result-item:hover {
+      background: var(--accent);
+      color: #ffffff;
+    }
+
+    /* Toasts / Alerts */
+    .toast {
+      padding: 12px 16px;
+      border-radius: 10px;
+      font-size: 13px;
+      font-weight: 500;
+      margin-top: 14px;
+      display: none;
+      animation: fadeIn 0.25s ease;
+    }
+
+    .toast-success {
+      background: rgba(16, 185, 129, 0.15);
+      border: 1px solid rgba(16, 185, 129, 0.3);
+      color: #34d399;
+    }
+
+    .toast-danger {
+      background: rgba(239, 68, 68, 0.15);
+      border: 1px solid rgba(239, 68, 68, 0.3);
+      color: #f87171;
+    }
+
+    /* Live Preview Section */
+    .preview-box {
       margin-top: 24px;
-      text-align: center;
+      padding-top: 20px;
+      border-top: 1px solid rgba(255, 255, 255, 0.08);
+    }
+
+    .preview-title {
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: 0.8px;
+      color: var(--text-muted);
+      margin-bottom: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .preview-badge {
+      background: rgba(13, 17, 23, 0.85);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      border-radius: 12px;
+      padding: 12px 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      font-size: 14px;
+    }
+
+    .preview-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .preview-time {
+      font-family: var(--font-mono);
+      font-weight: 700;
+      font-size: 16px;
+      color: #ffffff;
+    }
+
+    .preview-location {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-weight: 600;
+      color: #e2e8f0;
+      font-size: 13px;
+    }
+
+    /* OBS Link helper */
+    .obs-link-box {
+      margin-top: 18px;
+      background: rgba(0, 0, 0, 0.25);
+      border-radius: 8px;
+      padding: 10px 14px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+    }
+
+    .obs-link-text {
+      font-family: var(--font-mono);
+      font-size: 12px;
+      color: #94a3b8;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .copy-btn {
+      background: rgba(255, 255, 255, 0.1);
+      border: none;
+      color: white;
+      padding: 5px 10px;
+      border-radius: 6px;
+      font-size: 11px;
+      font-weight: 600;
+      cursor: pointer;
+      flex-shrink: 0;
+    }
+
+    .copy-btn:hover {
+      background: var(--accent);
+    }
+
+    /* Footer links */
+    .footer-links {
+      display: flex;
+      justify-content: space-between;
+      margin-top: 20px;
+      font-size: 13px;
+    }
+
+    .footer-links a {
+      color: #818cf8;
+      text-decoration: none;
+      transition: color 0.2s;
+    }
+
+    .footer-links a:hover {
+      color: #c7d2fe;
+      text-decoration: underline;
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(-4px); }
+      to { opacity: 1; transform: translateY(0); }
     }
   </style>
 </head>
 <body>
-  <div class="container">
-    <h2>Overlay Settings</h2>
-    <div style="display:flex;gap:10px;margin-bottom:18px;">
-      <button id="modeRTIRL" type="button">Use RTIRL Key</button>
-      <button id="modeManual" type="button">Manual City Input</button>
-    </div>
-    <form id="rtirlForm" style="display:none;">
-      <label for="rtirlKey">RTIRL Pull Key:</label>
-      <input type="text" id="rtirlKey" name="rtirlKey" required autocomplete="off" inputmode="text" />
-      <button type="submit">Save Key</button>
-    </form>
-    <form id="cityForm" style="display:none;">
-      <label for="manualCity">City Name:</label>
-      <input type="text" id="manualCity" name="manualCity" required autocomplete="off" inputmode="text" placeholder="e.g. Paris" />
-      <div style="font-size:13px;color:#aaa;margin-bottom:8px;">Type a city name and pick the correct one from the list.</div>
-      <select id="cityPicker" style="display:none;width:100%;margin-bottom:8px;"></select>
-      <button type="submit">Save City</button>
-    </form>
-    <button id="removeKeyBtn" style="margin-top:12px;background:#e53935;display:none;">Remove Key</button>
-    <button id="removeCityBtn" style="margin-top:12px;background:#e53935;display:none;">Remove City</button>
-    <div class="success" id="successMsg" style="display:none;">Saved! You can now return to the overlay.</div>
-    <div class="success" id="removeMsg" style="display:none;color:#e53935;">Removed.</div>
-    <a href="index.html">← Back to Overlay</a>
-  </div>
-  <script src="config.js"></script>
-  <script>
-    // Helper to update mode UI
-    function updateModeUI(mode) {
-      document.getElementById('modeRTIRL').style.background = mode === 'rtirl' ? '#1976d2' : '';
-      document.getElementById('modeManual').style.background = mode === 'manual' ? '#1976d2' : '';
-      document.getElementById('rtirlForm').style.display = mode === 'rtirl' ? '' : 'none';
-      document.getElementById('removeKeyBtn').style.display = mode === 'rtirl' ? '' : 'none';
-      document.getElementById('cityForm').style.display = mode === 'manual' ? '' : 'none';
-      document.getElementById('removeCityBtn').style.display = mode === 'manual' ? '' : 'none';
-    }
-    // Load mode from storage
-    let mode = localStorage.getItem('overlayMode') || 'rtirl';
-    updateModeUI(mode);
-    // Set up mode buttons
-    document.getElementById('modeRTIRL').onclick = function() {
-      mode = 'rtirl';
-      localStorage.setItem('overlayMode', 'rtirl');
-      updateModeUI('rtirl');
-      // Remove manual city if switching
-      localStorage.removeItem('manualCity');
-      document.getElementById('manualCity').value = '';
-      document.getElementById('removeMsg').style.display = 'none';
-      document.getElementById('successMsg').style.display = 'none';
-    };
-    document.getElementById('modeManual').onclick = function() {
-      mode = 'manual';
-      localStorage.setItem('overlayMode', 'manual');
-      updateModeUI('manual');
-      // Remove RTIRL key if switching
-      localStorage.removeItem('rtirlPullKey');
-      document.getElementById('rtirlKey').value = '';
-      document.getElementById('removeMsg').style.display = 'none';
-      document.getElementById('successMsg').style.display = 'none';
-    };
-    // RTIRL form
-    document.getElementById('rtirlKey').value = localStorage.getItem('rtirlPullKey') || '';
-    const workerEndpoint = window.OVERLAY_CONFIG.workerEndpoint;
-    document.getElementById('rtirlForm').addEventListener('submit', async function(e) {
-      e.preventDefault();
-      const key = document.getElementById('rtirlKey').value.trim();
-      await fetch(workerEndpoint, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ mode: 'rtirl', key })
-      });
-      document.getElementById('successMsg').style.display = 'block';
-      document.getElementById('removeMsg').style.display = 'none';
-    });
-    // Remove key button
-    document.getElementById('removeKeyBtn').onclick = async function() {
-      document.getElementById('rtirlKey').value = '';
-      await fetch(workerEndpoint, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ mode: 'rtirl', key: null })
-      });
-      document.getElementById('removeMsg').style.display = 'block';
-      document.getElementById('successMsg').style.display = 'none';
-    };
-    // Manual city form
-    const manualCityInput = document.getElementById('manualCity');
-    const cityPicker = document.getElementById('cityPicker');
-    let cityMatches = [];
 
-    document.getElementById('cityForm').addEventListener('submit', async function(e) {
-      e.preventDefault();
-      const mapboxApiKey = window.OVERLAY_CONFIG.mapboxApiKey;
-      // If cityPicker is visible, use the selected city
-      if (cityPicker.style.display !== 'none' && cityPicker.value) {
-        const idx = parseInt(cityPicker.value, 10);
-        const match = cityMatches[idx];
-        if (match) {
-          // Save city name and coordinates
-          await fetch(workerEndpoint, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ mode: 'manual', city: match.place_name, lat: match.center[1], lon: match.center[0] })
-          });
-          document.getElementById('successMsg').style.display = 'block';
-          document.getElementById('removeMsg').style.display = 'none';
-          cityPicker.style.display = 'none';
-          manualCityInput.value = '';
-          return;
-        }
+  <div class="container">
+    <div class="header">
+      <h1>Overlay Remote</h1>
+      <p>Configure your RealtimeIRL stream tracker</p>
+    </div>
+
+    <!-- Mode Selector Tabs -->
+    <div class="tabs-container">
+      <button class="tab-btn active" id="tabRTIRL" type="button">
+        📡 RealtimeIRL Key
+      </button>
+      <button class="tab-btn" id="tabManual" type="button">
+        📍 Manual City
+      </button>
+    </div>
+
+    <!-- RTIRL Pull Key Form -->
+    <form id="rtirlForm">
+      <div class="form-group">
+        <label for="rtirlKey">RealtimeIRL Pull Key</label>
+        <div class="input-wrapper">
+          <input type="text" id="rtirlKey" name="rtirlKey" placeholder="e.g. 5x8abc..." autocomplete="off" spellcheck="false" />
+        </div>
+        <div class="hint">
+          Get your free pull key from <a href="https://realtime.irl.com/" target="_blank" style="color:#818cf8;">realtime.irl.com</a> to stream live GPS.
+        </div>
+      </div>
+      <button type="submit" class="btn btn-primary" id="saveRtirlBtn">Save RTIRL Key</button>
+      <button type="button" class="btn btn-danger" id="removeRtirlBtn" style="display:none;">Disconnect RTIRL Key</button>
+    </form>
+
+    <!-- Manual City Form -->
+    <form id="cityForm" style="display:none;">
+      <div class="form-group">
+        <label for="manualCity">Search City</label>
+        <div class="input-wrapper">
+          <input type="text" id="manualCity" name="manualCity" placeholder="Type a city name (e.g. Tokyo, Miami)..." autocomplete="off" />
+          <div class="results-dropdown" id="cityDropdown"></div>
+        </div>
+        <div class="hint">Select your destination city to pin the weather and local time.</div>
+      </div>
+      <button type="submit" class="btn btn-primary" id="saveCityBtn">Save City</button>
+      <button type="button" class="btn btn-danger" id="removeCityBtn" style="display:none;">Clear City</button>
+    </form>
+
+    <!-- Status Toasts -->
+    <div class="toast toast-success" id="successToast">✓ Settings saved and synced to overlay!</div>
+    <div class="toast toast-danger" id="errorToast"></div>
+
+    <!-- Live Preview Card -->
+    <div class="preview-box">
+      <div class="preview-title">
+        <span>Overlay Preview</span>
+        <span id="previewStatus" style="color:#10b981;font-weight:600;">● Active</span>
+      </div>
+      <div class="preview-badge">
+        <div class="preview-row">
+          <div class="preview-time" id="prevTime">12:00:00 PM</div>
+          <div style="font-family:var(--font-mono);color:#fbbf24;font-weight:700;" id="prevTemp">72°F</div>
+        </div>
+        <div class="preview-row">
+          <div class="preview-location">
+            <span id="prevFlag">🌍</span>
+            <span id="prevLocation">City Name</span>
+          </div>
+          <div style="font-size:12px;color:var(--text-muted);" id="prevCondition">Partly Cloudy</div>
+        </div>
+      </div>
+
+      <!-- OBS Browser Source Helper -->
+      <div class="obs-link-box">
+        <span class="obs-link-text" id="obsUrlDisplay">index.html</span>
+        <button type="button" class="copy-btn" id="copyObsBtn">Copy OBS Link</button>
+      </div>
+    </div>
+
+    <!-- Footer Links -->
+    <div class="footer-links">
+      <a href="index.html" target="_blank">Open OBS Overlay ↗</a>
+      <a href="https://github.com/AlphaKing112/TimeLocation-Overlay" target="_blank">GitHub Repo ↗</a>
+    </div>
+  </div>
+
+  <!-- Load Config -->
+  <script src="config.js" onerror="window.__CONFIG_MISSING__=true;"></script>
+
+  <script>
+    const config = window.OVERLAY_CONFIG || {};
+    const workerEndpoint = config.workerEndpoint || "";
+    const mapboxApiKey = config.mapboxApiKey || "";
+
+    // DOM Elements
+    const tabRTIRL = document.getElementById('tabRTIRL');
+    const tabManual = document.getElementById('tabManual');
+    const rtirlForm = document.getElementById('rtirlForm');
+    const cityForm = document.getElementById('cityForm');
+    const rtirlKeyInput = document.getElementById('rtirlKey');
+    const manualCityInput = document.getElementById('manualCity');
+    const cityDropdown = document.getElementById('cityDropdown');
+    const removeRtirlBtn = document.getElementById('removeRtirlBtn');
+    const removeCityBtn = document.getElementById('removeCityBtn');
+    const successToast = document.getElementById('successToast');
+    const errorToast = document.getElementById('errorToast');
+    const obsUrlDisplay = document.getElementById('obsUrlDisplay');
+    const copyObsBtn = document.getElementById('copyObsBtn');
+
+    // Preview elements
+    const prevTime = document.getElementById('prevTime');
+    const prevLocation = document.getElementById('prevLocation');
+    const prevTemp = document.getElementById('prevTemp');
+    const prevCondition = document.getElementById('prevCondition');
+
+    let currentMode = localStorage.getItem('overlayMode') || 'rtirl';
+    let selectedCityData = null;
+    let searchDebounce = null;
+
+    // Build absolute URL for OBS Browser Source
+    const fullOverlayUrl = new URL('index.html', window.location.href).href;
+    obsUrlDisplay.textContent = fullOverlayUrl;
+
+    copyObsBtn.addEventListener('click', () => {
+      navigator.clipboard.writeText(fullOverlayUrl).then(() => {
+        copyObsBtn.textContent = 'Copied!';
+        setTimeout(() => copyObsBtn.textContent = 'Copy OBS Link', 2000);
+      });
+    });
+
+    // Preview clock ticker
+    setInterval(() => {
+      prevTime.textContent = new Date().toLocaleTimeString('en-US');
+    }, 1000);
+
+    // Toast Helpers
+    function showSuccess(msg = "Settings saved and synced to overlay!") {
+      successToast.textContent = "✓ " + msg;
+      successToast.style.display = 'block';
+      errorToast.style.display = 'none';
+      setTimeout(() => { successToast.style.display = 'none'; }, 4000);
+    }
+
+    function showError(msg) {
+      errorToast.textContent = "✕ " + msg;
+      errorToast.style.display = 'block';
+      successToast.style.display = 'none';
+      setTimeout(() => { errorToast.style.display = 'none'; }, 5000);
+    }
+
+    // Switch Tabs
+    function setMode(mode) {
+      currentMode = mode;
+      localStorage.setItem('overlayMode', mode);
+
+      if (mode === 'rtirl') {
+        tabRTIRL.classList.add('active');
+        tabManual.classList.remove('active');
+        rtirlForm.style.display = 'block';
+        cityForm.style.display = 'none';
+        prevLocation.textContent = "Live GPS (RTIRL)";
+      } else {
+        tabManual.classList.add('active');
+        tabRTIRL.classList.remove('active');
+        cityForm.style.display = 'block';
+        rtirlForm.style.display = 'none';
+        prevLocation.textContent = manualCityInput.value || "Selected City";
       }
-      // Otherwise, fetch city matches from Mapbox
-      const city = manualCityInput.value.trim();
-      if (!city) return;
-      const mapboxUrl = `https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(city)}.json?types=place&limit=5&access_token=${mapboxApiKey}`;
-      const geoRes = await fetch(mapboxUrl);
-      const geoData = await geoRes.json();
-      cityMatches = geoData.features || [];
-      if (!cityMatches.length) {
-        cityPicker.style.display = 'none';
-        alert('No matches found. Try a different city.');
+    }
+
+    tabRTIRL.addEventListener('click', () => setMode('rtirl'));
+    tabManual.addEventListener('click', () => setMode('manual'));
+
+    // Safe Worker API Caller
+    async function syncToWorker(payload) {
+      if (!workerEndpoint) {
+        throw new Error("Worker endpoint is not configured in config.js.");
+      }
+      const res = await fetch(workerEndpoint, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      if (!res.ok) throw new Error(`Server returned HTTP ${res.status}`);
+      return res;
+    }
+
+    // Save RTIRL Key
+    rtirlForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const key = rtirlKeyInput.value.trim();
+      if (!key) return showError("Please enter an RTIRL pull key.");
+
+      try {
+        localStorage.setItem('rtirlPullKey', key);
+        await syncToWorker({ mode: 'rtirl', key });
+        removeRtirlBtn.style.display = 'block';
+        showSuccess("RTIRL Key saved! OBS overlay is now live.");
+      } catch (err) {
+        showError(err.message);
+      }
+    });
+
+    // Remove RTIRL Key
+    removeRtirlBtn.addEventListener('click', async () => {
+      try {
+        rtirlKeyInput.value = '';
+        localStorage.removeItem('rtirlPullKey');
+        await syncToWorker({ mode: 'rtirl', key: null });
+        removeRtirlBtn.style.display = 'none';
+        showSuccess("RTIRL key removed.");
+      } catch (err) {
+        showError(err.message);
+      }
+    });
+
+    // Mapbox Geocoding Autocomplete Search
+    manualCityInput.addEventListener('input', () => {
+      const query = manualCityInput.value.trim();
+      clearTimeout(searchDebounce);
+      selectedCityData = null;
+
+      if (!query || query.length < 2) {
+        cityDropdown.style.display = 'none';
         return;
       }
-      // Populate picker
-      cityPicker.innerHTML = cityMatches.map((c, i) => `<option value="${i}">${c.place_name}</option>`).join('');
-      cityPicker.style.display = '';
+
+      searchDebounce = setTimeout(async () => {
+        if (!mapboxApiKey) {
+          // Without Mapbox key, allow raw text input
+          return;
+        }
+
+        try {
+          const url = `https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(query)}.json?types=place&limit=5&access_token=${mapboxApiKey}`;
+          const res = await fetch(url);
+          const data = await res.json();
+          const features = data.features || [];
+
+          if (features.length === 0) {
+            cityDropdown.style.display = 'none';
+            return;
+          }
+
+          cityDropdown.innerHTML = '';
+          features.forEach(feat => {
+            const item = document.createElement('div');
+            item.className = 'result-item';
+            item.textContent = feat.place_name;
+            item.addEventListener('click', () => {
+              manualCityInput.value = feat.place_name;
+              selectedCityData = {
+                city: feat.place_name,
+                lat: feat.center[1],
+                lon: feat.center[0]
+              };
+              prevLocation.textContent = feat.place_name;
+              cityDropdown.style.display = 'none';
+            });
+            cityDropdown.appendChild(item);
+          });
+          cityDropdown.style.display = 'block';
+        } catch (err) {
+          console.warn("[Settings] Geocoding lookup:", err);
+        }
+      }, 300);
     });
-    // Remove city button
-    document.getElementById('removeCityBtn').onclick = async function() {
-      document.getElementById('manualCity').value = '';
-      await fetch(workerEndpoint, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ mode: 'manual', city: null })
-      });
-      document.getElementById('removeMsg').style.display = 'block';
-      document.getElementById('successMsg').style.display = 'none';
-    };
-    // Auto-focus input on load
-    window.onload = function() {
-      if (mode === 'rtirl') {
-        document.getElementById('rtirlKey').focus();
-      } else {
-        document.getElementById('manualCity').focus();
+
+    // Close dropdown if clicking outside
+    document.addEventListener('click', (e) => {
+      if (!cityForm.contains(e.target)) {
+        cityDropdown.style.display = 'none';
       }
-    };
+    });
+
+    // Save Manual City
+    cityForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const cityText = manualCityInput.value.trim();
+      if (!cityText) return showError("Please enter a city name.");
+
+      const payload = selectedCityData ? {
+        mode: 'manual',
+        city: selectedCityData.city,
+        lat: selectedCityData.lat,
+        lon: selectedCityData.lon
+      } : {
+        mode: 'manual',
+        city: cityText
+      };
+
+      try {
+        localStorage.setItem('manualCity', cityText);
+        await syncToWorker(payload);
+        removeCityBtn.style.display = 'block';
+        prevLocation.textContent = cityText;
+        showSuccess("City saved! OBS overlay updated.");
+      } catch (err) {
+        showError(err.message);
+      }
+    });
+
+    // Remove City
+    removeCityBtn.addEventListener('click', async () => {
+      try {
+        manualCityInput.value = '';
+        selectedCityData = null;
+        localStorage.removeItem('manualCity');
+        await syncToWorker({ mode: 'manual', city: null });
+        removeCityBtn.style.display = 'none';
+        showSuccess("City removed.");
+      } catch (err) {
+        showError(err.message);
+      }
+    });
+
+    // Initialize values from storage
+    const savedKey = localStorage.getItem('rtirlPullKey');
+    if (savedKey) {
+      rtirlKeyInput.value = savedKey;
+      removeRtirlBtn.style.display = 'block';
+    }
+
+    const savedCity = localStorage.getItem('manualCity');
+    if (savedCity) {
+      manualCityInput.value = savedCity;
+      removeCityBtn.style.display = 'block';
+      prevLocation.textContent = savedCity;
+    }
+
+    // Apply active mode
+    setMode(currentMode);
   </script>
 </body>
-</html> 
+</html>

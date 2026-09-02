@@ -1,10 +1,26 @@
-// Your OpenWeather API key. Get it from https://openweathermap.org/api
-// Used for weather data and timezone offset.
+// TimeLocation-Overlay Configuration
+// Copy or rename this file to `config.js` and insert your API keys.
+
 window.OVERLAY_CONFIG = {
+  // OpenWeather API key: https://openweathermap.org/api
+  // Used for current weather, condition description, and local timezone offset.
   openWeatherApiKey: "",
-  // Your Mapbox API key. Get it from https://account.mapbox.com/
-  // Used for accurate city search and geocoding.
+
+  // Mapbox Public Access Token: https://account.mapbox.com/
+  // Used in settings.html for accurate city search and geocoding.
   mapboxApiKey: "",
-  // Your Cloudflare Worker endpoint. Deploy your own Worker and use the endpoint URL here (e.g. https://your-worker.workers.dev/overlay)
-  workerEndpoint: ""
-}; 
+
+  // Cloudflare Worker endpoint URL (e.g. "https://your-worker.workers.dev/overlay")
+  // Connects the settings dashboard with the OBS overlay widget.
+  workerEndpoint: "",
+
+  // Optional display preferences:
+  // units: "imperial" (°F) or "metric" (°C)
+  units: "imperial",
+
+  // layout: "card" (vertical card), "pill" (compact horizontal bar), or "minimal"
+  layout: "card",
+
+  // theme: "glass" (modern frosted glass), "oled" (deep black), or "neon" (cyan/purple glow)
+  theme: "glass"
+};

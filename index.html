@@ -1,63 +1,351 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>TimeLocation Stream Overlay</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@500;700&family=Outfit:wght@400;500;600;700&display=swap" rel="stylesheet">
   <style>
-    body {
-      margin: 0;
-      font-family: Arial, sans-serif;
-      color: white;
-      background: transparent;
-      overflow-x: hidden;
+    :root {
+      --bg-glass: rgba(13, 17, 23, 0.78);
+      --border-glass: rgba(255, 255, 255, 0.12);
+      --border-glow: rgba(99, 102, 241, 0.25);
+      --accent: #6366f1;
+      --accent-light: #818cf8;
+      --text-main: #f8fafc;
+      --text-muted: #94a3b8;
+      --pulse-color: #10b981;
+      --shadow-hud: 0 10px 28px -4px rgba(0, 0, 0, 0.6), 0 0 0 1px var(--border-glass);
+      --font-ui: 'Outfit', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      --font-mono: 'JetBrains Mono', monospace;
     }
-    #overlay {
-      padding: 10px;
-      font-weight: bold;
-      text-shadow: 2px 2px 6px #000;
-      user-select: none;
-      font-size: 20px;
-      line-height: 1.6;
-      max-width: 95vw;
+
+    /* Themes */
+    [data-theme="oled"] {
+      --bg-glass: rgba(0, 0, 0, 0.92);
+      --border-glass: rgba(255, 255, 255, 0.08);
+      --border-glow: rgba(255, 255, 255, 0.15);
+      --accent: #38bdf8;
+      --accent-light: #7dd3fc;
+    }
+
+    [data-theme="neon"] {
+      --bg-glass: rgba(10, 10, 20, 0.85);
+      --border-glass: rgba(236, 72, 153, 0.3);
+      --border-glow: rgba(56, 189, 248, 0.4);
+      --accent: #ec4899;
+      --accent-light: #f472b6;
+      --shadow-hud: 0 12px 36px rgba(0, 0, 0, 0.7), 0 0 16px rgba(236, 72, 153, 0.25);
+    }
+
+    * {
       box-sizing: border-box;
-      word-break: break-word;
+      margin: 0;
+      padding: 0;
     }
+
+    body {
+      background: transparent;
+      font-family: var(--font-ui);
+      color: var(--text-main);
+      overflow: hidden;
+      user-select: none;
+      -webkit-font-smoothing: antialiased;
+      padding: 16px;
+    }
+
+    /* Base Container */
+    #overlay {
+      display: inline-flex;
+      position: relative;
+      transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+
+    /* Layout: Card (Default) */
+    .layout-card {
+      flex-direction: column;
+      gap: 10px;
+      padding: 14px 18px;
+      border-radius: 14px;
+      background: var(--bg-glass);
+      backdrop-filter: blur(16px) saturate(180%);
+      -webkit-backdrop-filter: blur(16px) saturate(180%);
+      box-shadow: var(--shadow-hud);
+      min-width: 260px;
+      max-width: 380px;
+    }
+
+    /* Layout: Pill (Horizontal Compact) */
+    .layout-pill {
+      flex-direction: row;
+      align-items: center;
+      gap: 14px;
+      padding: 9px 18px;
+      border-radius: 9999px;
+      background: var(--bg-glass);
+      backdrop-filter: blur(16px) saturate(180%);
+      -webkit-backdrop-filter: blur(16px) saturate(180%);
+      box-shadow: var(--shadow-hud);
+    }
+
+    .layout-pill .divider {
+      width: 1px;
+      height: 18px;
+      background: rgba(255, 255, 255, 0.15);
+    }
+
+    /* Layout: Minimalist (Transparent text with heavy shadow) */
+    .layout-minimal {
+      flex-direction: column;
+      gap: 6px;
+      padding: 4px;
+      text-shadow: 0 2px 8px rgba(0, 0, 0, 0.9), 0 0 2px rgba(0, 0, 0, 0.8);
+    }
+
+    .layout-minimal .flag-img {
+      filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.8));
+    }
+
+    /* Row Item */
     .row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-size: 15px;
+      font-weight: 500;
+      white-space: nowrap;
+    }
+
+    .row-primary {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      gap: 12px;
+    }
+
+    /* Time Display */
+    .time-display {
+      font-family: var(--font-mono);
+      font-size: 22px;
+      font-weight: 700;
+      letter-spacing: -0.5px;
+      color: #ffffff;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .layout-pill .time-display {
+      font-size: 16px;
+    }
+
+    /* Live Pulse Indicator */
+    .live-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--pulse-color);
+      box-shadow: 0 0 8px var(--pulse-color);
+      display: inline-block;
+      position: relative;
+    }
+
+    .live-dot::after {
+      content: '';
+      position: absolute;
+      inset: -3px;
+      border-radius: 50%;
+      border: 1.5px solid var(--pulse-color);
+      opacity: 0.8;
+      animation: pulse-ring 2s cubic-bezier(0.24, 0, 0.38, 1) infinite;
+    }
+
+    @keyframes pulse-ring {
+      0% { transform: scale(0.8); opacity: 0.8; }
+      100% { transform: scale(2.2); opacity: 0; }
+    }
+
+    /* Icons */
+    .icon-badge {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 24px;
+      height: 24px;
+      color: var(--accent-light);
+      flex-shrink: 0;
+    }
+
+    .icon-badge svg {
+      width: 19px;
+      height: 19px;
+      fill: currentColor;
+    }
+
+    /* Flag Image */
+    .flag-img {
+      width: 22px;
+      height: 16px;
+      border-radius: 3px;
+      object-fit: cover;
+      background: #1e293b;
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.4);
+      flex-shrink: 0;
+      transition: opacity 0.3s ease;
+    }
+
+    /* Location & Weather Texts */
+    .location-text {
+      font-weight: 600;
+      color: #f1f5f9;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      max-width: 260px;
+    }
+
+    .weather-group {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      color: var(--text-muted);
+      font-size: 14px;
+    }
+
+    .temp-badge {
+      font-family: var(--font-mono);
+      font-weight: 700;
+      color: #fbbf24;
+    }
+
+    .condition-text {
+      color: var(--text-muted);
+      text-transform: capitalize;
+    }
+
+    /* Fallback / Setup guide card */
+    .setup-banner {
+      background: rgba(30, 27, 75, 0.85);
+      border: 1px solid rgba(129, 140, 248, 0.4);
+      backdrop-filter: blur(14px);
+      padding: 14px 18px;
+      border-radius: 12px;
+      max-width: 360px;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+    }
+    .setup-title {
+      font-size: 14px;
+      font-weight: 700;
+      color: #818cf8;
+      margin-bottom: 6px;
       display: flex;
       align-items: center;
       gap: 6px;
     }
-    .emoji {
-      font-size: 20px;
+    .setup-desc {
+      font-size: 12px;
+      color: #cbd5e1;
+      line-height: 1.5;
     }
-    @media (max-width: 600px) {
-      #overlay {
-        font-size: 16px;
-        padding: 6px;
-      }
-      .emoji {
-        font-size: 16px;
-      }
+    .setup-link {
+      display: inline-block;
+      margin-top: 8px;
+      color: #38bdf8;
+      text-decoration: none;
+      font-weight: 600;
+      font-size: 12px;
+    }
+
+    /* Fade Transition */
+    .fade-in {
+      animation: fadeIn 0.4s ease forwards;
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0.3; transform: translateY(2px); }
+      to { opacity: 1; transform: translateY(0); }
     }
   </style>
-  <!-- Add RealtimeIRL API -->
+
+  <!-- RealtimeIRL API -->
   <script src="https://cdn.jsdelivr.net/npm/@rtirl/api@latest/lib/index.min.js"></script>
 </head>
 <body>
-  <script src="config.js"></script>
-  <div id="overlay">
-    <div class="row"><span class="emoji">🕒</span><span id="time">--:--</span></div>
-    <div class="row"><img id="flagImg" src="https://flagcdn.com/unknown.svg" alt="Flag" style="width:24px;height:24px;border-radius:3px;object-fit:cover;background:#222;margin-right:6px;" /><span id="location">Loading...</span></div>
-    <div class="row"><span class="emoji">🌥</span><span id="condition">--</span></div>
-    <div class="row"><span class="emoji">🌡</span><span id="temperature">--°F</span></div>
+  <!-- Configuration Script (Loads local or injected config) -->
+  <script src="config.js" onerror="window.__CONFIG_MISSING__=true;"></script>
+
+  <div id="overlay" class="layout-card">
+    <!-- Row 1: Time & Status -->
+    <div class="row-primary">
+      <div class="time-display">
+        <span class="live-dot" id="liveDot" title="Live Sync"></span>
+        <span id="time">--:--:--</span>
+      </div>
+      <div class="weather-group" id="tempBadgeGroup">
+        <span class="temp-badge" id="temperature">--°</span>
+      </div>
+    </div>
+
+    <!-- Row 2: Location & Flag -->
+    <div class="row">
+      <img id="flagImg" class="flag-img" src="https://flagcdn.com/unknown.svg" alt="Flag" />
+      <span class="location-text" id="location">Connecting...</span>
+    </div>
+
+    <!-- Row 3: Weather Condition -->
+    <div class="row" id="conditionRow">
+      <div class="icon-badge" id="weatherIcon">
+        <!-- Default Weather SVG (Sun/Cloud) -->
+        <svg viewBox="0 0 24 24"><path d="M19.35 10.04C18.67 6.59 15.64 4 12 4 9.11 4 6.6 5.64 5.35 8.04 2.34 8.36 0 10.91 0 14c0 3.31 2.69 6 6 6h13c2.76 0 5-2.24 5-5 0-2.64-2.05-4.78-4.65-4.96zM19 18H6c-2.21 0-4-1.79-4-4 0-2.05 1.53-3.76 3.56-3.97l1.07-.11.5-.95C8.08 7.14 9.94 6 12 6c2.62 0 4.88 1.86 5.39 4.43l.3 1.5 1.53.11c1.56.1 2.78 1.41 2.78 2.96 0 1.65-1.35 3-3 3z"/></svg>
+      </div>
+      <span class="condition-text" id="condition">Fetching weather...</span>
+    </div>
   </div>
 
   <script>
-    const openWeatherApiKey = window.OVERLAY_CONFIG.openWeatherApiKey;
-    const timezoneDbApiKey = window.OVERLAY_CONFIG.timezoneDbApiKey;
-    const workerEndpoint = window.OVERLAY_CONFIG.workerEndpoint;
+    // URL Params for live customization in OBS:
+    // ?layout=card|pill|minimal
+    // ?theme=glass|oled|neon
+    // ?units=imperial|metric
+    const urlParams = new URLSearchParams(window.location.search);
 
-    let currentTimezoneOffset = 0; // in seconds
+    const config = window.OVERLAY_CONFIG || {};
+    const openWeatherApiKey = config.openWeatherApiKey || "";
+    const mapboxApiKey = config.mapboxApiKey || "";
+    const workerEndpoint = config.workerEndpoint || "";
+    const defaultUnits = urlParams.get('units') || config.units || 'imperial';
+    const activeLayout = urlParams.get('layout') || config.layout || 'card';
+    const activeTheme = urlParams.get('theme') || config.theme || 'glass';
+
+    // Apply layout and theme
+    const overlayEl = document.getElementById('overlay');
+    overlayEl.className = `layout-${activeLayout}`;
+    document.documentElement.setAttribute('data-theme', activeTheme);
+
+    // Weather SVG Icons Library
+    const WEATHER_ICONS = {
+      clearDay: `<svg viewBox="0 0 24 24"><path d="M12 7c-2.76 0-5 2.24-5 5s2.24 5 5 5 5-2.24 5-5-2.24-5-5-5zM2 13h2c.55 0 1-.45 1-1s-.45-1-1-1H2c-.55 0-1 .45-1 1s.45 1 1 1zm18 0h2c.55 0 1-.45 1-1s-.45-1-1-1h-2c-.55 0-1 .45-1 1s.45 1 1 1zM11 2v2c0 .55.45 1 1 1s1-.45 1-1V2c0-.55-.45-1-1-1s-1 .45-1 1zm0 18v2c0 .55.45 1 1 1s1-.45 1-1v-2c0-.55-.45-1-1-1s-1 .45-1 1zM5.99 4.58a.996.996 0 00-1.41 0 .996.996 0 000 1.41l1.06 1.06c.39.39 1.03.39 1.41 0s.39-1.03 0-1.41L5.99 4.58zm12.37 12.37a.996.996 0 00-1.41 0 .996.996 0 000 1.41l1.06 1.06c.39.39 1.03.39 1.41 0s.39-1.03 0-1.41l-1.06-1.06zm1.06-10.96a.996.996 0 00-1.41-1.41l-1.06 1.06c-.39.39-.39 1.03 0 1.41s1.03.39 1.41 0l1.06-1.06zM7.05 18.36a.996.996 0 00-1.41-1.41l-1.06 1.06c-.39.39-.39 1.03 0 1.41s1.03.39 1.41 0l1.06-1.06z"/></svg>`,
+      clearNight: `<svg viewBox="0 0 24 24"><path d="M12.3 2a10 10 0 00-1.9 19.8 10 10 0 0011.6-11.6A10 10 0 0012.3 2zm-1.1 17.8A8 8 0 0110 3.9a8 8 0 009.1 10.3 8 8 0 01-7.9 5.6z"/></svg>`,
+      clouds: `<svg viewBox="0 0 24 24"><path d="M19.35 10.04C18.67 6.59 15.64 4 12 4 9.11 4 6.6 5.64 5.35 8.04 2.34 8.36 0 10.91 0 14c0 3.31 2.69 6 6 6h13c2.76 0 5-2.24 5-5 0-2.64-2.05-4.78-4.65-4.96zM19 18H6c-2.21 0-4-1.79-4-4 0-2.05 1.53-3.76 3.56-3.97l1.07-.11.5-.95C8.08 7.14 9.94 6 12 6c2.62 0 4.88 1.86 5.39 4.43l.3 1.5 1.53.11c1.56.1 2.78 1.41 2.78 2.96 0 1.65-1.35 3-3 3z"/></svg>`,
+      rain: `<svg viewBox="0 0 24 24"><path d="M19.35 10.04C18.67 6.59 15.64 4 12 4 9.11 4 6.6 5.64 5.35 8.04 2.34 8.36 0 10.91 0 14c0 3.31 2.69 6 6 6h13c2.76 0 5-2.24 5-5 0-2.64-2.05-4.78-4.65-4.96zM7 21h2v3H7v-3zm4 0h2v3h-2v-3zm4 0h2v3h-2v-3z"/></svg>`,
+      thunderstorm: `<svg viewBox="0 0 24 24"><path d="M19.35 10.04C18.67 6.59 15.64 4 12 4 9.11 4 6.6 5.64 5.35 8.04 2.34 8.36 0 10.91 0 14c0 3.31 2.69 6 6 6h13c2.76 0 5-2.24 5-5 0-2.64-2.05-4.78-4.65-4.96zM11 15v3h-2l4 5v-3h2l-4-5z"/></svg>`,
+      snow: `<svg viewBox="0 0 24 24"><path d="M19.35 10.04C18.67 6.59 15.64 4 12 4 9.11 4 6.6 5.64 5.35 8.04 2.34 8.36 0 10.91 0 14c0 3.31 2.69 6 6 6h13c2.76 0 5-2.24 5-5 0-2.64-2.05-4.78-4.65-4.96zM12 21.5a1.5 1.5 0 110-3 1.5 1.5 0 010 3zm-4-1a1 1 0 110-2 1 1 0 010 2zm8 0a1 1 0 110-2 1 1 0 010 2z"/></svg>`,
+      mist: `<svg viewBox="0 0 24 24"><path d="M4 10h16c.55 0 1-.45 1-1s-.45-1-1-1H4c-.55 0-1 .45-1 1s.45 1 1 1zm0 4h16c.55 0 1-.45 1-1s-.45-1-1-1H4c-.55 0-1 .45-1 1s.45 1 1 1zm0 4h16c.55 0 1-.45 1-1s-.45-1-1-1H4c-.55 0-1 .45-1 1s.45 1 1 1z"/></svg>`
+    };
+
+    function getWeatherIcon(iconCode, weatherId) {
+      const isNight = iconCode && iconCode.endsWith('n');
+      if (weatherId >= 200 && weatherId < 300) return WEATHER_ICONS.thunderstorm;
+      if (weatherId >= 300 && weatherId < 600) return WEATHER_ICONS.rain;
+      if (weatherId >= 600 && weatherId < 700) return WEATHER_ICONS.snow;
+      if (weatherId >= 700 && weatherId < 800) return WEATHER_ICONS.mist;
+      if (weatherId === 800) return isNight ? WEATHER_ICONS.clearNight : WEATHER_ICONS.clearDay;
+      return WEATHER_ICONS.clouds;
+    }
+
+    // State Variables
+    let currentTimezoneOffset = 0;
     let timeIntervalId = null;
     let lastLat = null;
     let lastLon = null;
@@ -65,34 +353,22 @@
     let lastValue = null;
     let rtirlListener = null;
 
-    function capitalize(text) {
-      return text.charAt(0).toUpperCase() + text.slice(1);
-    }
+    // In-memory weather cache (key: lat,lon:units, ttl: 5 mins)
+    const weatherCache = new Map();
+    const CACHE_TTL_MS = 5 * 60 * 1000;
 
-    // Set flag image from country code using flagcdn.com
-    function setFlagImage(countryCode) {
-      const flagImg = document.getElementById("flagImg");
-      if (countryCode && countryCode.length === 2) {
-        flagImg.src = `https://flagcdn.com/${countryCode.toLowerCase()}.svg`;
-        flagImg.alt = countryCode.toUpperCase() + " flag";
-      } else {
-        flagImg.src = "https://flagcdn.com/unknown.svg";
-        flagImg.alt = "Unknown flag";
-      }
-    }
-
+    // Time display updater
     function updateTimeDisplay() {
       const timeEl = document.getElementById("time");
       const now = new Date();
       const utc = now.getTime() + (now.getTimezoneOffset() * 60000);
       const localTime = new Date(utc + currentTimezoneOffset * 1000);
-      const formattedTime = new Intl.DateTimeFormat("en-US", {
+      timeEl.textContent = new Intl.DateTimeFormat("en-US", {
         hour: "numeric",
         minute: "2-digit",
         second: "2-digit",
         hour12: true
       }).format(localTime);
-      timeEl.textContent = formattedTime;
     }
 
     function startTimeUpdater() {
@@ -101,114 +377,190 @@
       timeIntervalId = setInterval(updateTimeDisplay, 1000);
     }
 
-    async function updateOverlayWithLocation(latitude, longitude) {
-      const locationEl = document.getElementById("location");
-      const conditionEl = document.getElementById("condition");
-      const tempEl = document.getElementById("temperature");
-
-      try {
-        console.log('[Overlay] Fetching overlay data for:', latitude, longitude); // Debug log
-        // Reverse geocoding to get city/country
-        const reverseRes = await fetch(`https://api.openweathermap.org/geo/1.0/reverse?lat=${latitude}&lon=${longitude}&limit=1&appid=${openWeatherApiKey}`);
-        const reverseData = await reverseRes.json();
-        const region = reverseData[0]?.name || "Unknown";
-        const country = reverseData[0]?.country || "";
-        setFlagImage(country);
-
-        // Get weather data (and timezone offset)
-        const weatherRes = await fetch(`https://api.openweathermap.org/data/2.5/weather?lat=${latitude}&lon=${longitude}&units=imperial&appid=${openWeatherApiKey}`);
-        const weatherData = await weatherRes.json();
-
-        const tempF = Math.round(weatherData.main.temp);
-        const condition = capitalize(weatherData.weather[0].description);
-        currentTimezoneOffset = weatherData.timezone || 0; // in seconds
-
-        // Display data
-        locationEl.textContent = `${region}, ${country}`;
-        conditionEl.textContent = condition;
-        tempEl.textContent = `${tempF}°F`;
-      } catch (e) {
-        locationEl.textContent = "Unable to load location.";
-        setFlagImage(null);
-        conditionEl.textContent = "--";
-        tempEl.textContent = "--°F";
-        currentTimezoneOffset = 0;
-        console.error("Error:", e.message);
+    // Set country flag safely
+    function setFlagImage(countryCode) {
+      const flagImg = document.getElementById("flagImg");
+      if (countryCode && countryCode.length === 2) {
+        flagImg.src = `https://flagcdn.com/${countryCode.toLowerCase()}.svg`;
+        flagImg.alt = `${countryCode.toUpperCase()} flag`;
+      } else {
+        flagImg.src = "https://flagcdn.com/unknown.svg";
+        flagImg.alt = "Unknown flag";
       }
     }
 
-    async function updateOverlayWithCity(city, lat = null, lon = null) {
+    // Check if configuration is missing
+    function checkConfiguration() {
+      if (!workerEndpoint && !openWeatherApiKey) {
+        overlayEl.innerHTML = `
+          <div class="setup-banner">
+            <div class="setup-title">
+              <span class="live-dot" style="background:#f59e0b;box-shadow:0 0 6px #f59e0b;"></span>
+              TimeLocation Overlay Setup
+            </div>
+            <div class="setup-desc">
+              Create <strong>config.js</strong> with your OpenWeather & Worker endpoints to activate the live stream overlay.
+            </div>
+            <a class="setup-link" href="settings.html" target="_blank">Open Settings Dashboard →</a>
+          </div>
+        `;
+        return false;
+      }
+      return true;
+    }
+
+    // Fetch and update location & weather
+    async function updateOverlayWithLocation(latitude, longitude, preferredCity = null, preferredCountry = null) {
       const locationEl = document.getElementById("location");
-      const flagImg = document.getElementById("flagImg");
       const conditionEl = document.getElementById("condition");
       const tempEl = document.getElementById("temperature");
+      const iconBadge = document.getElementById("weatherIcon");
+
+      // Approximate coordinates to 2 decimals (~1km) for cache key to respect API quotas
+      const cacheKey = `${latitude.toFixed(2)},${longitude.toFixed(2)}:${defaultUnits}`;
+      const now = Date.now();
+
+      try {
+        let weatherData = null;
+        let region = preferredCity;
+        let country = preferredCountry;
+
+        // Check Cache
+        if (weatherCache.has(cacheKey) && (now - weatherCache.get(cacheKey).time < CACHE_TTL_MS)) {
+          const cached = weatherCache.get(cacheKey);
+          weatherData = cached.data;
+          region = region || cached.region;
+          country = country || cached.country;
+        } else {
+          // 1. Reverse Geocoding if city not provided
+          if (!region) {
+            const reverseRes = await fetch(
+              `https://api.openweathermap.org/geo/1.0/reverse?lat=${latitude}&lon=${longitude}&limit=1&appid=${openWeatherApiKey}`
+            );
+            if (reverseRes.ok) {
+              const reverseData = await reverseRes.json();
+              if (reverseData && reverseData[0]) {
+                region = reverseData[0].name;
+                country = reverseData[0].country;
+              }
+            }
+          }
+
+          // 2. Fetch Weather Data
+          const weatherUrl = `https://api.openweathermap.org/data/2.5/weather?lat=${latitude}&lon=${longitude}&units=${defaultUnits}&appid=${openWeatherApiKey}`;
+          const weatherRes = await fetch(weatherUrl);
+          if (!weatherRes.ok) throw new Error(`Weather API Error (${weatherRes.status})`);
+          weatherData = await weatherRes.json();
+
+          // Save to cache
+          weatherCache.set(cacheKey, { data: weatherData, region, country, time: now });
+        }
+
+        // Apply Country & Location
+        setFlagImage(country);
+        locationEl.textContent = region ? (country ? `${region}, ${country}` : region) : "Unknown Location";
+        locationEl.classList.remove('fade-in');
+        void locationEl.offsetWidth; // trigger reflow
+        locationEl.classList.add('fade-in');
+
+        // Apply Weather & Temperature
+        const unitSymbol = defaultUnits === 'metric' ? '°C' : '°F';
+        const temp = Math.round(weatherData.main.temp);
+        const condition = weatherData.weather[0]?.description || "Clear";
+        const iconCode = weatherData.weather[0]?.icon || "01d";
+        const weatherId = weatherData.weather[0]?.id || 800;
+
+        currentTimezoneOffset = weatherData.timezone || 0;
+        tempEl.textContent = `${temp}${unitSymbol}`;
+        conditionEl.textContent = condition;
+
+        if (iconBadge) {
+          iconBadge.innerHTML = getWeatherIcon(iconCode, weatherId);
+        }
+
+        // Visual status pulse
+        const liveDot = document.getElementById("liveDot");
+        if (liveDot) {
+          liveDot.style.background = 'var(--pulse-color)';
+          liveDot.style.boxShadow = '0 0 8px var(--pulse-color)';
+        }
+      } catch (err) {
+        console.warn("[Overlay] Weather update notice:", err.message);
+        if (locationEl) locationEl.textContent = region || "Location unavailable";
+        if (conditionEl) conditionEl.textContent = "Data unavailable";
+        if (tempEl) tempEl.textContent = "--°";
+      }
+    }
+
+    // Manual city resolver
+    async function updateOverlayWithCity(city, lat = null, lon = null) {
       try {
         let latitude = lat;
         let longitude = lon;
-        let displayName = city;
-        let country = null;
-        // If lat/lon provided (from Mapbox), use them
+        let cityName = city;
+        let countryCode = null;
+
         if (latitude !== null && longitude !== null) {
-          // Try to extract country code from displayName (last part after comma)
           const parts = city.split(",");
-          country = parts[parts.length - 1].trim();
-          locationEl.textContent = displayName;
-          setFlagImage(country);
+          cityName = parts[0].trim();
+          if (parts.length > 1) {
+            countryCode = parts[parts.length - 1].trim();
+          }
         } else {
-          // Fallback: geocode with OpenWeather
-          const geoRes = await fetch(`https://api.openweathermap.org/geo/1.0/direct?q=${encodeURIComponent(city)}&limit=1&appid=${openWeatherApiKey}`);
+          // Geocode with OpenWeather
+          const geoRes = await fetch(
+            `https://api.openweathermap.org/geo/1.0/direct?q=${encodeURIComponent(city)}&limit=1&appid=${openWeatherApiKey}`
+          );
           const geoData = await geoRes.json();
-          if (!geoData.length) throw new Error("City not found");
+          if (!geoData || !geoData.length) throw new Error("City not found");
           latitude = geoData[0].lat;
           longitude = geoData[0].lon;
-          displayName = `${geoData[0].name}, ${geoData[0].country}`;
-          country = geoData[0].country;
-          locationEl.textContent = displayName;
-          setFlagImage(country);
+          cityName = geoData[0].name;
+          countryCode = geoData[0].country;
         }
+
         lastLat = latitude;
         lastLon = longitude;
-        await updateOverlayWithLocation(latitude, longitude);
-      } catch (e) {
-        locationEl.textContent = "Unable to load city.";
-        setFlagImage(null);
-        conditionEl.textContent = "--";
-        tempEl.textContent = "--°F";
-        currentTimezoneOffset = 0;
-        console.error("Error:", e.message);
+        await updateOverlayWithLocation(latitude, longitude, cityName, countryCode);
+      } catch (err) {
+        console.error("[Overlay] Manual city error:", err);
+        const locationEl = document.getElementById("location");
+        if (locationEl) locationEl.textContent = city || "City error";
       }
     }
 
+    // Cloudflare Worker Polling
     async function fetchAndUpdateOverlay() {
-      console.debug(`[Overlay] Polling Worker endpoint at ${new Date().toLocaleTimeString()}:`, workerEndpoint);
+      if (!workerEndpoint) return;
+
       try {
         const res = await fetch(workerEndpoint);
+        if (!res.ok) throw new Error(`Worker HTTP ${res.status}`);
         const data = await res.json();
+
         if (!data || !data.mode) {
-          document.getElementById("location").innerHTML = 'Overlay not configured. <a href="settings.html" style="color:#90caf9;">Configure here</a>.';
-          setFlagImage(null);
+          const locationEl = document.getElementById("location");
+          if (locationEl) {
+            locationEl.innerHTML = `Overlay not configured. <a href="settings.html" style="color:#818cf8;">Setup</a>`;
+          }
           return;
         }
-        // Only update if mode/value changed
+
+        // Avoid re-processing if data hasn't changed
         if (data.mode === lastMode && JSON.stringify(data) === JSON.stringify(lastValue)) return;
         lastMode = data.mode;
         lastValue = data;
 
         if (data.mode === 'manual' && data.city) {
-          updateOverlayWithCity(data.city, data.lat, data.lon);
+          if (rtirlListener && rtirlListener.remove) rtirlListener.remove();
+          await updateOverlayWithCity(data.city, data.lat, data.lon);
           startTimeUpdater();
         } else if (data.mode === 'rtirl' && data.key && typeof RealtimeIRL !== "undefined") {
-          // Remove previous listener if any
           if (rtirlListener && rtirlListener.remove) rtirlListener.remove();
-          // Add new listener
-          rtirlListener = RealtimeIRL.forPullKey(data.key).addLocationListener(function (location) {
-            if (!location) {
-              const debugEl = document.getElementById("debug");
-              if (debugEl) debugEl.textContent = '[RTIRL] Waiting for location...';
-              return;
-            }
-            const { latitude, longitude } = location;
-            console.log('[RTIRL] Location updated:', latitude, longitude); // Debug log
+
+          rtirlListener = RealtimeIRL.forPullKey(data.key).addLocationListener(function(loc) {
+            if (!loc) return;
+            const { latitude, longitude } = loc;
             if (latitude !== lastLat || longitude !== lastLon) {
               lastLat = latitude;
               lastLon = longitude;
@@ -216,45 +568,47 @@
               startTimeUpdater();
             }
           });
-        } else if (data.mode === 'manual' && !data.city) {
-          document.getElementById("location").innerHTML = 'Manual city not set. <a href="settings.html" style="color:#90caf9;">Set your city here</a>.';
-          setFlagImage(null);
-        } else if (data.mode === 'rtirl' && !data.key) {
-          document.getElementById("location").innerHTML = 'RTIRL key not set. <a href="settings.html" style="color:#90caf9;">Set your key here</a>.';
-          setFlagImage(null);
         } else {
-          document.getElementById("location").textContent = "Overlay not configured.";
-          setFlagImage(null);
+          const locationEl = document.getElementById("location");
+          if (locationEl) {
+            locationEl.innerHTML = `Set your ${data.mode === 'rtirl' ? 'RTIRL key' : 'City'} in <a href="settings.html" style="color:#818cf8;">Settings</a>`;
+          }
         }
-      } catch (e) {
-        document.getElementById("location").textContent = "Unable to fetch overlay settings.";
-        setFlagImage(null);
+      } catch (err) {
+        console.warn("[Overlay] Polling Worker notice:", err.message);
       }
     }
 
-    // Polling logic: only poll when page is visible
-    let pollingInterval = null;
-    function startPolling() {
-      if (!pollingInterval) {
-        fetchAndUpdateOverlay();
-        pollingInterval = setInterval(fetchAndUpdateOverlay, 15000);
+    // Initial Startup
+    if (checkConfiguration()) {
+      startTimeUpdater();
+
+      // Visibility-aware polling
+      let pollingInterval = null;
+      function startPolling() {
+        if (!pollingInterval) {
+          fetchAndUpdateOverlay();
+          pollingInterval = setInterval(fetchAndUpdateOverlay, 15000);
+        }
       }
+
+      function stopPolling() {
+        if (pollingInterval) {
+          clearInterval(pollingInterval);
+          pollingInterval = null;
+        }
+      }
+
+      document.addEventListener("visibilitychange", function() {
+        if (document.visibilityState === "visible") {
+          startPolling();
+        } else {
+          stopPolling();
+        }
+      });
+
+      startPolling();
     }
-    function stopPolling() {
-      if (pollingInterval) {
-        clearInterval(pollingInterval);
-        pollingInterval = null;
-      }
-    }
-    document.addEventListener("visibilitychange", function() {
-      if (document.visibilityState === "visible") {
-        startPolling();
-      } else {
-        stopPolling();
-      }
-    });
-    // Start polling initially
-    startPolling();
   </script>
 </body>
 </html>

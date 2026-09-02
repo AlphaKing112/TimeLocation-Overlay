@@ -529,54 +529,86 @@
       }
     }
 
+    // Apply state payload (from URL, LocalStorage, BroadcastChannel, or Worker)
+    async function applyState(state) {
+      if (!state) return;
+      if (state.mode === 'manual' && state.city) {
+        if (rtirlListener && rtirlListener.remove) rtirlListener.remove();
+        await updateOverlayWithCity(state.city, state.lat || null, state.lon || null);
+        startTimeUpdater();
+      } else if (state.mode === 'rtirl' && state.key && typeof RealtimeIRL !== "undefined") {
+        if (rtirlListener && rtirlListener.remove) rtirlListener.remove();
+        rtirlListener = RealtimeIRL.forPullKey(state.key).addLocationListener(function(loc) {
+          if (!loc) return;
+          const { latitude, longitude } = loc;
+          if (latitude !== lastLat || longitude !== lastLon) {
+            lastLat = latitude;
+            lastLon = longitude;
+            updateOverlayWithLocation(latitude, longitude);
+            startTimeUpdater();
+          }
+        });
+      }
+    }
+
     // Cloudflare Worker Polling
     async function fetchAndUpdateOverlay() {
-      if (!workerEndpoint) return;
-
-      try {
-        const res = await fetch(workerEndpoint);
-        if (!res.ok) throw new Error(`Worker HTTP ${res.status}`);
-        const data = await res.json();
-
-        if (!data || !data.mode) {
-          const locationEl = document.getElementById("location");
-          if (locationEl) {
-            locationEl.innerHTML = `Overlay not configured. <a href="settings.html" style="color:#818cf8;">Setup</a>`;
-          }
-          return;
-        }
-
-        // Avoid re-processing if data hasn't changed
-        if (data.mode === lastMode && JSON.stringify(data) === JSON.stringify(lastValue)) return;
-        lastMode = data.mode;
-        lastValue = data;
-
-        if (data.mode === 'manual' && data.city) {
-          if (rtirlListener && rtirlListener.remove) rtirlListener.remove();
-          await updateOverlayWithCity(data.city, data.lat, data.lon);
-          startTimeUpdater();
-        } else if (data.mode === 'rtirl' && data.key && typeof RealtimeIRL !== "undefined") {
-          if (rtirlListener && rtirlListener.remove) rtirlListener.remove();
-
-          rtirlListener = RealtimeIRL.forPullKey(data.key).addLocationListener(function(loc) {
-            if (!loc) return;
-            const { latitude, longitude } = loc;
-            if (latitude !== lastLat || longitude !== lastLon) {
-              lastLat = latitude;
-              lastLon = longitude;
-              updateOverlayWithLocation(latitude, longitude);
-              startTimeUpdater();
-            }
-          });
-        } else {
-          const locationEl = document.getElementById("location");
-          if (locationEl) {
-            locationEl.innerHTML = `Set your ${data.mode === 'rtirl' ? 'RTIRL key' : 'City'} in <a href="settings.html" style="color:#818cf8;">Settings</a>`;
-          }
-        }
-      } catch (err) {
-        console.warn("[Overlay] Polling Worker notice:", err.message);
+      // 1. Check URL parameters first (?city=Tokyo or ?key=123)
+      const paramCity = urlParams.get('city');
+      const paramKey = urlParams.get('key') || urlParams.get('rtirl');
+      if (paramCity) {
+        await applyState({ mode: 'manual', city: paramCity });
+        return;
       }
+      if (paramKey) {
+        await applyState({ mode: 'rtirl', key: paramKey });
+        return;
+      }
+
+      // 2. If Cloudflare Worker is configured, poll it
+      if (workerEndpoint) {
+        try {
+          const res = await fetch(workerEndpoint);
+          if (res.ok) {
+            const data = await res.json();
+            if (data && data.mode) {
+              if (data.mode === lastMode && JSON.stringify(data) === JSON.stringify(lastValue)) return;
+              lastMode = data.mode;
+              lastValue = data;
+              await applyState(data);
+              return;
+            }
+          }
+        } catch (err) {
+          console.warn("[Overlay] Worker polling notice:", err.message);
+        }
+      }
+
+      // 3. Fallback to localStorage (for local browser & OBS on same machine)
+      const savedMode = localStorage.getItem('overlayMode') || 'manual';
+      if (savedMode === 'manual') {
+        const savedCity = localStorage.getItem('manualCity');
+        const savedLat = parseFloat(localStorage.getItem('manualLat')) || null;
+        const savedLon = parseFloat(localStorage.getItem('manualLon')) || null;
+        if (savedCity) {
+          await applyState({ mode: 'manual', city: savedCity, lat: savedLat, lon: savedLon });
+        }
+      } else if (savedMode === 'rtirl') {
+        const savedKey = localStorage.getItem('rtirlPullKey');
+        if (savedKey) {
+          await applyState({ mode: 'rtirl', key: savedKey });
+        }
+      }
+    }
+
+    // Listen for instant local updates from settings.html via BroadcastChannel
+    if (typeof BroadcastChannel !== 'undefined') {
+      const syncChannel = new BroadcastChannel('overlay_sync');
+      syncChannel.onmessage = (e) => {
+        if (e.data) {
+          applyState(e.data);
+        }
+      };
     }
 
     // Initial Startup

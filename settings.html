@@ -485,9 +485,25 @@
     let selectedCityData = null;
     let searchDebounce = null;
 
+    // Broadcast channel for instant cross-tab/OBS communication on the same PC
+    const overlayChannel = typeof BroadcastChannel !== 'undefined' ? new BroadcastChannel('overlay_sync') : null;
+
     // Build absolute URL for OBS Browser Source
-    const fullOverlayUrl = new URL('index.html', window.location.href).href;
-    obsUrlDisplay.textContent = fullOverlayUrl;
+    function updateObsLink(params = {}) {
+      const url = new URL('index.html', window.location.href);
+      if (currentMode === 'manual') {
+        const city = manualCityInput.value.trim();
+        if (city) url.searchParams.set('city', city);
+      } else if (currentMode === 'rtirl') {
+        const key = rtirlKeyInput.value.trim();
+        if (key) url.searchParams.set('key', key);
+      }
+      fullOverlayUrl = url.href;
+      obsUrlDisplay.textContent = fullOverlayUrl;
+    }
+
+    let fullOverlayUrl = new URL('index.html', window.location.href).href;
+    updateObsLink();
 
     copyObsBtn.addEventListener('click', () => {
       navigator.clipboard.writeText(fullOverlayUrl).then(() => {
@@ -502,11 +518,11 @@
     }, 1000);
 
     // Toast Helpers
-    function showSuccess(msg = "Settings saved and synced to overlay!") {
+    function showSuccess(msg = "Settings saved!") {
       successToast.textContent = "✓ " + msg;
       successToast.style.display = 'block';
       errorToast.style.display = 'none';
-      setTimeout(() => { successToast.style.display = 'none'; }, 4000);
+      setTimeout(() => { successToast.style.display = 'none'; }, 4500);
     }
 
     function showError(msg) {
@@ -520,6 +536,7 @@
     function setMode(mode) {
       currentMode = mode;
       localStorage.setItem('overlayMode', mode);
+      updateObsLink();
 
       if (mode === 'rtirl') {
         tabRTIRL.classList.add('active');
@@ -539,18 +556,25 @@
     tabRTIRL.addEventListener('click', () => setMode('rtirl'));
     tabManual.addEventListener('click', () => setMode('manual'));
 
-    // Safe Worker API Caller
-    async function syncToWorker(payload) {
-      if (!workerEndpoint) {
-        throw new Error("Worker endpoint is not configured in config.js.");
+    // Worker API caller with safe local fallback
+    async function syncSettings(payload) {
+      // 1. Broadcast locally for zero-latency updates on same device/OBS
+      if (overlayChannel) {
+        overlayChannel.postMessage(payload);
       }
-      const res = await fetch(workerEndpoint, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
-      });
-      if (!res.ok) throw new Error(`Server returned HTTP ${res.status}`);
-      return res;
+
+      // 2. If Cloudflare Worker endpoint is set, sync remotely
+      if (workerEndpoint) {
+        const res = await fetch(workerEndpoint, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+        if (!res.ok) throw new Error(`Worker sync returned HTTP ${res.status}`);
+        return { syncedRemote: true };
+      }
+
+      return { syncedRemote: false };
     }
 
     // Save RTIRL Key
@@ -561,9 +585,14 @@
 
       try {
         localStorage.setItem('rtirlPullKey', key);
-        await syncToWorker({ mode: 'rtirl', key });
+        updateObsLink();
+        const res = await syncSettings({ mode: 'rtirl', key });
         removeRtirlBtn.style.display = 'block';
-        showSuccess("RTIRL Key saved! OBS overlay is now live.");
+        if (res.syncedRemote) {
+          showSuccess("RTIRL Key saved and synced to Cloudflare Worker!");
+        } else {
+          showSuccess("RTIRL Key saved locally! (Copy the OBS Link below into OBS)");
+        }
       } catch (err) {
         showError(err.message);
       }
@@ -574,7 +603,8 @@
       try {
         rtirlKeyInput.value = '';
         localStorage.removeItem('rtirlPullKey');
-        await syncToWorker({ mode: 'rtirl', key: null });
+        updateObsLink();
+        await syncSettings({ mode: 'rtirl', key: null });
         removeRtirlBtn.style.display = 'none';
         showSuccess("RTIRL key removed.");
       } catch (err) {
@@ -587,6 +617,7 @@
       const query = manualCityInput.value.trim();
       clearTimeout(searchDebounce);
       selectedCityData = null;
+      updateObsLink();
 
       if (!query || query.length < 2) {
         cityDropdown.style.display = 'none';
@@ -595,7 +626,6 @@
 
       searchDebounce = setTimeout(async () => {
         if (!mapboxApiKey) {
-          // Without Mapbox key, allow raw text input
           return;
         }
 
@@ -624,6 +654,7 @@
               };
               prevLocation.textContent = feat.place_name;
               cityDropdown.style.display = 'none';
+              updateObsLink();
             });
             cityDropdown.appendChild(item);
           });
@@ -659,10 +690,22 @@
 
       try {
         localStorage.setItem('manualCity', cityText);
-        await syncToWorker(payload);
+        if (selectedCityData) {
+          localStorage.setItem('manualLat', selectedCityData.lat);
+          localStorage.setItem('manualLon', selectedCityData.lon);
+        } else {
+          localStorage.removeItem('manualLat');
+          localStorage.removeItem('manualLon');
+        }
+        updateObsLink();
+        const res = await syncSettings(payload);
         removeCityBtn.style.display = 'block';
         prevLocation.textContent = cityText;
-        showSuccess("City saved! OBS overlay updated.");
+        if (res.syncedRemote) {
+          showSuccess("City saved and synced to Cloudflare Worker!");
+        } else {
+          showSuccess("City saved! (Tip: Set workerEndpoint in config.js for remote phone control)");
+        }
       } catch (err) {
         showError(err.message);
       }
@@ -674,7 +717,10 @@
         manualCityInput.value = '';
         selectedCityData = null;
         localStorage.removeItem('manualCity');
-        await syncToWorker({ mode: 'manual', city: null });
+        localStorage.removeItem('manualLat');
+        localStorage.removeItem('manualLon');
+        updateObsLink();
+        await syncSettings({ mode: 'manual', city: null });
         removeCityBtn.style.display = 'none';
         showSuccess("City removed.");
       } catch (err) {

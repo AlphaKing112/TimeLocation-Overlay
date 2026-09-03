@@ -493,12 +493,16 @@
     // Broadcast channel for instant cross-tab/OBS communication on the same PC
     const overlayChannel = typeof BroadcastChannel !== 'undefined' ? new BroadcastChannel('overlay_sync') : null;
 
-    // Build absolute URL for OBS Browser Source
-    function updateObsLink(params = {}) {
+    // Build clean URL for OBS Browser Source
+    function updateObsLink() {
       const url = new URL('index.html', window.location.href);
       if (currentMode === 'manual') {
         const city = manualCityInput.value.trim();
-        if (city) url.searchParams.set('city', city);
+        if (city) {
+          // Extract just the primary city name for a clean, short URL
+          const simpleCity = city.split(',')[0].trim();
+          url.searchParams.set('city', simpleCity);
+        }
       } else if (currentMode === 'rtirl') {
         const key = rtirlKeyInput.value.trim();
         if (key) url.searchParams.set('key', key);

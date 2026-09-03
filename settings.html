@@ -249,10 +249,55 @@
       color: #34d399;
     }
 
-    .toast-danger {
-      background: rgba(239, 68, 68, 0.15);
-      border: 1px solid rgba(239, 68, 68, 0.3);
-      color: #f87171;
+    /* Sliders */
+    .slider-row {
+      margin-top: 12px;
+      padding: 10px 14px;
+      background: rgba(0, 0, 0, 0.25);
+      border-radius: 10px;
+      border: 1px solid rgba(255, 255, 255, 0.06);
+    }
+
+    .slider-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 8px;
+      font-size: 13px;
+      font-weight: 600;
+      color: #cbd5e1;
+    }
+
+    .slider-val {
+      font-family: var(--font-mono);
+      color: #818cf8;
+      font-weight: 700;
+      font-size: 13px;
+    }
+
+    input[type="range"] {
+      -webkit-appearance: none;
+      width: 100%;
+      height: 6px;
+      border-radius: 3px;
+      background: rgba(255, 255, 255, 0.15);
+      outline: none;
+      cursor: pointer;
+    }
+
+    input[type="range"]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      width: 18px;
+      height: 18px;
+      border-radius: 50%;
+      background: var(--accent);
+      box-shadow: 0 0 10px var(--accent-glow);
+      cursor: pointer;
+      transition: transform 0.15s ease;
+    }
+
+    input[type="range"]::-webkit-slider-thumb:hover {
+      transform: scale(1.15);
     }
 
     /* Live Preview Section */
@@ -439,6 +484,23 @@
         </div>
       </div>
 
+      <!-- Appearance Sliders: Sizer & Background Opacity -->
+      <div class="slider-row">
+        <div class="slider-header">
+          <span>Overlay Sizer</span>
+          <span class="slider-val" id="scaleValDisplay">100%</span>
+        </div>
+        <input type="range" id="scaleSlider" min="50" max="175" step="5" value="100" />
+      </div>
+
+      <div class="slider-row">
+        <div class="slider-header">
+          <span>Background Opacity</span>
+          <span class="slider-val" id="opacityValDisplay">80%</span>
+        </div>
+        <input type="range" id="opacitySlider" min="0" max="100" step="5" value="80" />
+      </div>
+
       <!-- OBS Browser Source Helper -->
       <div class="obs-link-box">
         <span class="obs-link-text" id="obsUrlDisplay">index.html</span>
@@ -485,10 +547,25 @@
     const prevLocation = document.getElementById('prevLocation');
     const prevTemp = document.getElementById('prevTemp');
     const prevCondition = document.getElementById('prevCondition');
+    const previewBadge = document.querySelector('.preview-badge');
+
+    // Appearance Sliders
+    const scaleSlider = document.getElementById('scaleSlider');
+    const scaleValDisplay = document.getElementById('scaleValDisplay');
+    const opacitySlider = document.getElementById('opacitySlider');
+    const opacityValDisplay = document.getElementById('opacityValDisplay');
 
     let currentMode = localStorage.getItem('overlayMode') || 'rtirl';
     let selectedCityData = null;
     let searchDebounce = null;
+    let currentScale = localStorage.getItem('overlayScale') || "1";
+    let currentOpacity = localStorage.getItem('overlayOpacity') || "0.8";
+
+    // Set slider initial values
+    scaleSlider.value = Math.round(parseFloat(currentScale) * 100);
+    scaleValDisplay.textContent = `${scaleSlider.value}%`;
+    opacitySlider.value = Math.round(parseFloat(currentOpacity) * 100);
+    opacityValDisplay.textContent = `${opacitySlider.value}%`;
 
     // Broadcast channel for instant cross-tab/OBS communication on the same PC
     const overlayChannel = typeof BroadcastChannel !== 'undefined' ? new BroadcastChannel('overlay_sync') : null;
@@ -499,7 +576,6 @@
       if (currentMode === 'manual') {
         const city = manualCityInput.value.trim();
         if (city) {
-          // Extract just the primary city name for a clean, short URL
           const simpleCity = city.split(',')[0].trim();
           url.searchParams.set('city', simpleCity);
         }
@@ -507,9 +583,45 @@
         const key = rtirlKeyInput.value.trim();
         if (key) url.searchParams.set('key', key);
       }
+
+      const s = parseInt(scaleSlider.value, 10);
+      if (s !== 100) url.searchParams.set('scale', (s / 100).toFixed(2));
+      const o = parseInt(opacitySlider.value, 10);
+      if (o !== 80) url.searchParams.set('opacity', (o / 100).toFixed(2));
+
       fullOverlayUrl = url.href;
       obsUrlDisplay.textContent = fullOverlayUrl;
     }
+
+    function applyLiveStyling() {
+      const scaleDecimal = (parseInt(scaleSlider.value, 10) / 100).toFixed(2);
+      const opacityDecimal = (parseInt(opacitySlider.value, 10) / 100).toFixed(2);
+
+      scaleValDisplay.textContent = `${scaleSlider.value}%`;
+      opacityValDisplay.textContent = `${opacitySlider.value}%`;
+
+      localStorage.setItem('overlayScale', scaleDecimal);
+      localStorage.setItem('overlayOpacity', opacityDecimal);
+
+      if (previewBadge) {
+        previewBadge.style.background = `rgba(13, 17, 23, ${opacityDecimal})`;
+        if (opacityDecimal === "0.00") {
+          previewBadge.style.border = '1px dashed rgba(255, 255, 255, 0.2)';
+        } else {
+          previewBadge.style.border = `1px solid rgba(255, 255, 255, ${0.12 * Math.min(1, parseFloat(opacityDecimal) * 1.5)})`;
+        }
+      }
+
+      updateObsLink();
+
+      if (overlayChannel) {
+        overlayChannel.postMessage({ scale: scaleDecimal, opacity: opacityDecimal });
+      }
+    }
+
+    scaleSlider.addEventListener('input', applyLiveStyling);
+    opacitySlider.addEventListener('input', applyLiveStyling);
+    applyLiveStyling();
 
     let fullOverlayUrl = new URL('index.html', window.location.href).href;
     updateObsLink();

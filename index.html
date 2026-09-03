@@ -9,7 +9,9 @@
   <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@500;700&family=Outfit:wght@400;500;600;700&display=swap" rel="stylesheet">
   <style>
     :root {
-      --bg-glass: rgba(13, 17, 23, 0.78);
+      --scale: 1;
+      --bg-opacity: 0.78;
+      --bg-glass: rgba(13, 17, 23, var(--bg-opacity));
       --border-glass: rgba(255, 255, 255, 0.12);
       --border-glow: rgba(99, 102, 241, 0.25);
       --accent: #6366f1;
@@ -24,7 +26,7 @@
 
     /* Themes */
     [data-theme="oled"] {
-      --bg-glass: rgba(0, 0, 0, 0.92);
+      --bg-glass: rgba(0, 0, 0, var(--bg-opacity));
       --border-glass: rgba(255, 255, 255, 0.08);
       --border-glow: rgba(255, 255, 255, 0.15);
       --accent: #38bdf8;
@@ -32,7 +34,7 @@
     }
 
     [data-theme="neon"] {
-      --bg-glass: rgba(10, 10, 20, 0.85);
+      --bg-glass: rgba(10, 10, 20, var(--bg-opacity));
       --border-glass: rgba(236, 72, 153, 0.3);
       --border-glow: rgba(56, 189, 248, 0.4);
       --accent: #ec4899;
@@ -60,7 +62,9 @@
     #overlay {
       display: inline-flex;
       position: relative;
-      transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+      transform-origin: top left;
+      transform: scale(var(--scale, 1));
+      transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1), background 0.2s ease;
     }
 
     /* Layout: Card (Default) */
@@ -318,13 +322,39 @@
       : "";
     const workerEndpoint = config.workerEndpoint || autoWorkerUrl;
     const defaultUnits = urlParams.get('units') || config.units || 'imperial';
-    const activeLayout = urlParams.get('layout') || config.layout || 'card';
-    const activeTheme = urlParams.get('theme') || config.theme || 'glass';
+    // Scale and Background Opacity settings
+    const activeScale = urlParams.get('scale') || config.scale || 1;
+    const activeOpacity = urlParams.get('opacity') !== null ? urlParams.get('opacity') : (config.opacity !== undefined ? config.opacity : 0.78);
 
-    // Apply layout and theme
+    function applyScaleAndOpacity(scaleVal, opacityVal) {
+      if (scaleVal !== undefined && scaleVal !== null && scaleVal !== "") {
+        const s = parseFloat(scaleVal);
+        if (!isNaN(s)) {
+          document.documentElement.style.setProperty('--scale', s > 5 ? (s / 100).toString() : s.toString());
+        }
+      }
+      if (opacityVal !== undefined && opacityVal !== null && opacityVal !== "") {
+        let o = parseFloat(opacityVal);
+        if (!isNaN(o)) {
+          if (o > 1) o = o / 100;
+          o = Math.max(0, Math.min(1, o));
+          document.documentElement.style.setProperty('--bg-opacity', o);
+          if (o === 0) {
+            document.documentElement.style.setProperty('--shadow-hud', 'none');
+            document.documentElement.style.setProperty('--border-glass', 'transparent');
+          } else {
+            document.documentElement.style.setProperty('--shadow-hud', `0 10px 28px -4px rgba(0, 0, 0, ${0.6 * o}), 0 0 0 1px rgba(255, 255, 255, ${0.12 * Math.min(1, o * 1.5)})`);
+            document.documentElement.style.setProperty('--border-glass', `rgba(255, 255, 255, ${0.12 * Math.min(1, o * 1.5)})`);
+          }
+        }
+      }
+    }
+
+    // Apply layout, theme, and styling
     const overlayEl = document.getElementById('overlay');
     overlayEl.className = `layout-${activeLayout}`;
     document.documentElement.setAttribute('data-theme', activeTheme);
+    applyScaleAndOpacity(activeScale, activeOpacity);
 
     // Weather SVG Icons Library
     const WEATHER_ICONS = {
@@ -551,6 +581,9 @@
     // Apply state payload (from URL, LocalStorage, BroadcastChannel, or Worker)
     async function applyState(state) {
       if (!state) return;
+      if (state.scale !== undefined || state.opacity !== undefined) {
+        applyScaleAndOpacity(state.scale, state.opacity);
+      }
       if (state.mode === 'manual' && state.city) {
         if (rtirlListener && rtirlListener.remove) rtirlListener.remove();
         await updateOverlayWithCity(state.city, state.lat || null, state.lon || null);
@@ -572,6 +605,12 @@
 
     // Cloudflare Worker Polling
     async function fetchAndUpdateOverlay() {
+      // Check local storage for scale/opacity
+      const localScale = localStorage.getItem('overlayScale');
+      const localOpacity = localStorage.getItem('overlayOpacity');
+      if (localScale || localOpacity) {
+        applyScaleAndOpacity(localScale, localOpacity);
+      }
       // 1. Check URL parameters first (?city=Tokyo or ?key=123)
       const paramCity = urlParams.get('city');
       const paramKey = urlParams.get('key') || urlParams.get('rtirl');

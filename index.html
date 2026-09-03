@@ -528,7 +528,10 @@
             const first = data.results[0];
             latitude = first.latitude;
             longitude = first.longitude;
-            cityName = `${first.name}${first.admin1 ? ', ' + first.admin1 : ''}`;
+            const regionOrCountry = (first.admin1 && first.admin1.toLowerCase() !== first.name.toLowerCase()) 
+              ? (first.country_code === 'US' ? first.admin1 : `${first.admin1}, ${first.country || first.country_code}`)
+              : (first.country || first.country_code);
+            cityName = regionOrCountry ? `${first.name}, ${regionOrCountry}` : first.name;
             countryCode = first.country_code;
           } else {
             throw new Error("City not found");

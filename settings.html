@@ -646,11 +646,16 @@
             const url = `https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(query)}&count=5&language=en&format=json`;
             const res = await fetch(url);
             const data = await res.json();
-            items = (data.results || []).map(r => ({
-              place_name: `${r.name}${r.admin1 ? ', ' + r.admin1 : ''}, ${r.country || r.country_code}`,
-              lat: r.latitude,
-              lon: r.longitude
-            }));
+            items = (data.results || []).map(r => {
+              const regionPart = (r.admin1 && r.admin1.toLowerCase() !== r.name.toLowerCase())
+                ? (r.country_code === 'US' ? r.admin1 : `${r.admin1}, ${r.country || r.country_code}`)
+                : (r.country || r.country_code);
+              return {
+                place_name: regionPart ? `${r.name}, ${regionPart}` : r.name,
+                lat: r.latitude,
+                lon: r.longitude
+              };
+            });
           }
 
           if (items.length === 0) {

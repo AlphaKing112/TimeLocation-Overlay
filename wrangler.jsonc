@@ -6,6 +6,12 @@
     "directory": ".",
     "binding": "ASSETS"
   },
+  "kv_namespaces": [
+    {
+      "binding": "OVERLAY_KV",
+      "id": "2c095a9fdff4433cb9e4b11f822623da"
+    }
+  ],
   "observability": {
     "logs": {
       "enabled": true,
